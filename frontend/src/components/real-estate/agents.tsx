@@ -1,6 +1,7 @@
 "use client";
 
 import SafeLink from "@/components/ui/safe-link";
+import { useState, useEffect } from "react";
 
 
 import { motion } from "framer-motion";
@@ -8,6 +9,19 @@ import { Phone, Mail, Award, Briefcase, Facebook, Linkedin, Instagram, ArrowUpRi
 import { agents } from "@/lib/real-estate-data";
 
 export default function Agents() {
+  const [dbAgents, setDbAgents] = useState<any[]>(agents);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/agents")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.agents.length > 0) {
+          setDbAgents(data.agents);
+        }
+      })
+      .catch((err) => console.error("Error loading homepage agents:", err));
+  }, []);
+
   return (
     <section id="agents" className="relative py-24 lg:py-32 bg-luxe-soft overflow-hidden">
       <div className="absolute top-20 right-0 w-96 h-96 rounded-full bg-[var(--gold)]/8 blur-3xl" />
@@ -43,7 +57,7 @@ export default function Agents() {
 
         {/* Agents grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {agents.map((agent, i) => (
+          {dbAgents.map((agent, i) => (
             <motion.div
               key={agent.name}
               initial={{ opacity: 0, y: 40 }}

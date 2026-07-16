@@ -1,6 +1,7 @@
 "use client";
 
 import SafeLink from "@/components/ui/safe-link";
+import { useState, useEffect } from "react";
 
 
 import { motion } from "framer-motion";
@@ -26,7 +27,20 @@ const tagStyles: Record<string, string> = {
 };
 
 export default function FeaturedProperties() {
-  const [feature, ...rest] = properties;
+  const [dbProperties, setDbProperties] = useState<any[]>(properties);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/properties")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.properties.length > 0) {
+          setDbProperties(data.properties);
+        }
+      })
+      .catch((err) => console.error("Error loading featured properties:", err));
+  }, []);
+
+  const [feature, ...rest] = dbProperties.length > 0 ? dbProperties : properties;
   return (
     <section id="properties" className="relative py-24 lg:py-32 bg-luxe-soft overflow-hidden">
       <div className="absolute top-40 -right-20 w-96 h-96 rounded-full bg-[var(--gold)]/8 blur-3xl" />

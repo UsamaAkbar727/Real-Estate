@@ -1,23 +1,24 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { properties, agents, type Property } from "@/lib/real-estate-data";
 import SiteShell from "@/components/real-estate/site-shell";
 import PropertyDetailClient from "./property-detail-client";
 
-export function generateStaticParams() {
-  return properties.map((p) => ({ slug: p.slug }));
-}
+export const dynamic = "force-dynamic";
 
-export function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  // params is async in Next 16
-  return params.then((resolved) => {
-    const property = properties.find((p) => p.slug === resolved.slug);
-    if (!property) return { title: "Property Not Found | Imperial Estates" };
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const resolved = await params;
+  try {
+    const res = await fetch(`http://localhost:5000/api/properties/${resolved.slug}`);
+    if (!res.ok) return { title: "Property Not Found | Imperial Estates" };
+    const data = await res.json();
+    if (!data.success || !data.property) return { title: "Property Not Found | Imperial Estates" };
+    const property = data.property;
     return {
       title: `${property.title} — ${property.location} | Imperial Estates`,
       description: property.description.slice(0, 160),
     };
-  });
+  } catch {
+    return { title: "Property Detail | Imperial Estates" };
+  }
 }
 
 export default async function PropertyDetailPage({
@@ -26,14 +27,37 @@ export default async function PropertyDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const property = properties.find((p) => p.slug === slug);
-  if (!property) notFound();
-  const agent = agents.find((a) => a.id === property.agentId) ?? agents[0];
-  const related = properties.filter((p) => p.id !== property.id && p.category === property.category).slice(0, 3);
+  
+  try {
+    const res = await fetch(`http://localhost:5000/api/properties/${slug}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) notFound();
+    const data = await res.json();
+    if (!data.success || !data.property) notFound();
+    
+    const property = data.property;
+    const agent = property.agent || { id: 1, name: "Advisor", role: "Specialist", image: "/images/agent_1.png" };
+    
+    // Fetch similar properties for related
+    const relatedRes = await fetch("http://localhost:5000/api/properties");
+    let related = [];
+    if (relatedRes.ok) {
+      const relatedData = await relatedRes.json();
+      if (relatedData.success) {
+        related = relatedData.properties
+          .filter((p: any) => p.id !== property.id && p.category === property.category)
+          .slice(0, 3);
+      }
+    }
 
-  return (
-    <SiteShell>
-      <PropertyDetailClient property={property} agent={agent} related={related} />
-    </SiteShell>
-  );
+    return (
+      <SiteShell>
+        <PropertyDetailClient property={property} agent={agent} related={related} />
+      </SiteShell>
+    );
+  } catch (error) {
+    console.error("Failed to fetch property details dynamically:", error);
+    notFound();
+  }
 }

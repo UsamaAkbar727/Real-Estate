@@ -1,16 +1,31 @@
 "use client";
 
 import SafeLink from "@/components/ui/safe-link";
-
+import { useState, useEffect } from "react";
 
 import { motion } from "framer-motion";
 import { Phone, Mail, Award, Briefcase, Facebook, Linkedin, Instagram, ArrowUpRight, Users } from "lucide-react";
 import SiteShell from "@/components/real-estate/site-shell";
 import PageHero from "@/components/real-estate/page-hero";
 import Reveal from "@/components/real-estate/reveal";
-import { agents, stats } from "@/lib/real-estate-data";
+import { agents as staticAgents, stats } from "@/lib/real-estate-data";
 
 export default function AgentsPage() {
+  const [dbAgents, setDbAgents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/agents")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setDbAgents(data.agents);
+        }
+      })
+      .catch((err) => console.error("Error loading agents:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <SiteShell>
       <PageHero
@@ -55,7 +70,7 @@ export default function AgentsPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-6">
-            {agents.map((agent, i) => (
+            {dbAgents.map((agent, i) => (
               <Reveal key={agent.id} delay={(i % 2) * 0.1}>
                 <SafeLink
                   href={`/agents/${agent.slug}`}

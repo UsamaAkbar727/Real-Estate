@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -21,12 +18,59 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+model Agent {
+  id          Int        @id @default(autoincrement())
+  slug        String     @unique
+  name        String
+  role        String
+  bio         String
+  experience  String
+  deals       Int
+  sales       String
+  specialties String     // Comma-separated strings e.g. "DHA, Bahria Town, Plots"
+  image       String
+  phone       String
+  email       String
+  createdAt   DateTime   @default(now())
+  properties  Property[]
+}
+
+model Property {
+  id           Int      @id @default(autoincrement())
+  slug         String   @unique
+  title        String
+  location     String
+  areaName     String
+  price        String
+  priceValue   Float
+  pricePerSqft String?
+  type         String   // "Sale" | "Rent"
+  category     String   // "Villa" | "Apartment" | "Penthouse" etc.
+  beds         Int
+  baths        Int
+  area         String   // e.g. "1 Kanal", "10 Marla"
+  image        String
+  gallery      String   // Comma-separated list of image URLs e.g. "url1,url2,url3"
+  tag          String?  // e.g. "Signature", "Hot Deal"
+  featured     Boolean  @default(false)
+  coordinatesX Float
+  coordinatesY Float
+  description  String
+  features     String   // Comma-separated list of features e.g. "Pool,Garage,Garden"
+  agentId      Int
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  yearBuilt    Int
+  parking      Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Inquiry {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String
+  interest  String
+  message   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

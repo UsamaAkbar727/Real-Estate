@@ -16,7 +16,328 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Imperial Estates Backend is fully functional' });
 });
 
-// Contact Submission API
+// ================= PROPERTIES API =================
+
+// Get all properties with optional filtering
+app.get('/api/properties', async (req, res) => {
+  try {
+    const { category, area, type, search, featured } = req.query;
+
+    const where = {};
+
+    if (category && category !== 'All') {
+      where.category = category;
+    }
+
+    if (type) {
+      where.type = type;
+    }
+
+    if (featured === 'true') {
+      where.featured = true;
+    }
+
+    if (area && area !== 'All Areas') {
+      where.OR = [
+        { areaName: { contains: area } },
+        { location: { contains: area } }
+      ];
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      // If we already have OR from area, we can structure it carefully
+      const searchConditions = [
+        { title: { contains: searchLower } },
+        { location: { contains: searchLower } }
+      ];
+      if (where.OR) {
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions }
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
+    }
+
+    const properties = await prisma.property.findMany({
+      where,
+      include: {
+        agent: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Format list gallery & features back to array for frontend
+    const formatted = properties.map(p => ({
+      ...p,
+      gallery: p.gallery ? p.gallery.split(',') : [],
+      features: p.features ? p.features.split(',') : [],
+      coordinates: { x: p.coordinatesX, y: p.coordinatesY }
+    }));
+
+    res.json({ success: true, properties: formatted });
+  } catch (error) {
+    console.error('Fetch properties error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch properties' });
+  }
+});
+
+// Get single property by slug
+app.get('/api/properties/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const property = await prisma.property.findUnique({
+      where: { slug },
+      include: { agent: true }
+    });
+
+    if (!property) {
+      return res.status(404).json({ success: false, error: 'Property not found' });
+    }
+
+    const formatted = {
+      ...property,
+      gallery: property.gallery ? property.gallery.split(',') : [],
+      features: property.features ? property.features.split(',') : [],
+      coordinates: { x: property.coordinatesX, y: property.coordinatesY }
+    };
+
+    res.json({ success: true, property: formatted });
+  } catch (error) {
+    console.error('Fetch property error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch property' });
+  }
+});
+
+// Create property (Admin)
+app.post('/api/properties', async (req, res) => {
+  try {
+    const data = req.body;
+    
+    // Auto slug if not provided
+    const slug = data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+    const property = await prisma.property.create({
+      data: {
+        slug,
+        title: data.title,
+        location: data.location,
+        areaName: data.areaName,
+        price: data.price,
+        priceValue: parseFloat(data.priceValue),
+        pricePerSqft: data.pricePerSqft || null,
+        type: data.type,
+        category: data.category,
+        beds: parseInt(data.beds) || 0,
+        baths: parseInt(data.baths) || 0,
+        area: data.area,
+        image: data.image,
+        gallery: Array.isArray(data.gallery) ? data.gallery.join(',') : (data.gallery || ''),
+        tag: data.tag || null,
+        featured: data.featured || false,
+        coordinatesX: parseFloat(data.coordinatesX || data.coordinates?.x || 20),
+        coordinatesY: parseFloat(data.coordinatesY || data.coordinates?.y || 40),
+        description: data.description,
+        features: Array.isArray(data.features) ? data.features.join(',') : (data.features || ''),
+        agentId: parseInt(data.agentId),
+        yearBuilt: parseInt(data.yearBuilt) || 2024,
+        parking: data.parking ? parseInt(data.parking) : null,
+      }
+    });
+
+    res.status(201).json({ success: true, property });
+  } catch (error) {
+    console.error('Create property error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create property' });
+  }
+});
+
+// Update property (Admin)
+app.put('/api/properties/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data = req.body;
+
+    const property = await prisma.property.update({
+      where: { id },
+      data: {
+        title: data.title,
+        location: data.location,
+        areaName: data.areaName,
+        price: data.price,
+        priceValue: parseFloat(data.priceValue),
+        pricePerSqft: data.pricePerSqft || null,
+        type: data.type,
+        category: data.category,
+        beds: parseInt(data.beds) || 0,
+        baths: parseInt(data.baths) || 0,
+        area: data.area,
+        image: data.image,
+        gallery: Array.isArray(data.gallery) ? data.gallery.join(',') : (data.gallery || ''),
+        tag: data.tag || null,
+        featured: data.featured || false,
+        coordinatesX: parseFloat(data.coordinatesX || data.coordinates?.x || 20),
+        coordinatesY: parseFloat(data.coordinatesY || data.coordinates?.y || 40),
+        description: data.description,
+        features: Array.isArray(data.features) ? data.features.join(',') : (data.features || ''),
+        agentId: parseInt(data.agentId),
+        yearBuilt: parseInt(data.yearBuilt) || 2024,
+        parking: data.parking ? parseInt(data.parking) : null,
+      }
+    });
+
+    res.json({ success: true, property });
+  } catch (error) {
+    console.error('Update property error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update property' });
+  }
+});
+
+// Delete property (Admin)
+app.delete('/api/properties/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.property.delete({
+      where: { id }
+    });
+    res.json({ success: true, message: 'Property deleted successfully' });
+  } catch (error) {
+    console.error('Delete property error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete property' });
+  }
+});
+
+
+// ================= AGENTS API =================
+
+// Get all agents
+app.get('/api/agents', async (req, res) => {
+  try {
+    const agents = await prisma.agent.findMany({
+      orderBy: { id: 'asc' }
+    });
+
+    const formatted = agents.map(a => ({
+      ...a,
+      specialties: a.specialties ? a.specialties.split(',') : [],
+      languages: ['Urdu', 'English', 'Punjabi'],
+      social: { facebook: 'https://facebook.com', linkedin: 'https://linkedin.com', instagram: 'https://instagram.com' }
+    }));
+
+    res.json({ success: true, agents: formatted });
+  } catch (error) {
+    console.error('Fetch agents error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch agents' });
+  }
+});
+
+// Get single agent by slug
+app.get('/api/agents/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const agent = await prisma.agent.findUnique({
+      where: { slug }
+    });
+
+    if (!agent) {
+      return res.status(404).json({ success: false, error: 'Agent not found' });
+    }
+
+    const formatted = {
+      ...agent,
+      specialties: agent.specialties ? agent.specialties.split(',') : [],
+      languages: ['Urdu', 'English', 'Punjabi'],
+      social: { facebook: 'https://facebook.com', linkedin: 'https://linkedin.com', instagram: 'https://instagram.com' }
+    };
+
+    res.json({ success: true, agent: formatted });
+  } catch (error) {
+    console.error('Fetch agent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch agent' });
+  }
+});
+
+// Create agent (Admin)
+app.post('/api/agents', async (req, res) => {
+  try {
+    const data = req.body;
+    const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+    const agent = await prisma.agent.create({
+      data: {
+        slug,
+        name: data.name,
+        role: data.role,
+        bio: data.bio || '',
+        experience: data.experience || '1 Year',
+        deals: parseInt(data.deals) || 0,
+        sales: data.sales || 'PKR 0 sold',
+        specialties: Array.isArray(data.specialties) ? data.specialties.join(',') : (data.specialties || ''),
+        image: data.image || '/images/agent_1.png',
+        phone: data.phone,
+        email: data.email,
+      }
+    });
+
+    res.status(201).json({ success: true, agent });
+  } catch (error) {
+    console.error('Create agent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create agent' });
+  }
+});
+
+// Update agent (Admin)
+app.put('/api/agents/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data = req.body;
+
+    const agent = await prisma.agent.update({
+      where: { id },
+      data: {
+        name: data.name,
+        role: data.role,
+        bio: data.bio || '',
+        experience: data.experience || '1 Year',
+        deals: parseInt(data.deals) || 0,
+        sales: data.sales || 'PKR 0 sold',
+        specialties: Array.isArray(data.specialties) ? data.specialties.join(',') : (data.specialties || ''),
+        image: data.image || '/images/agent_1.png',
+        phone: data.phone,
+        email: data.email,
+      }
+    });
+
+    res.json({ success: true, agent });
+  } catch (error) {
+    console.error('Update agent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update agent' });
+  }
+});
+
+// Delete agent (Admin)
+app.delete('/api/agents/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.agent.delete({
+      where: { id }
+    });
+    res.json({ success: true, message: 'Agent deleted successfully' });
+  } catch (error) {
+    console.error('Delete agent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete agent' });
+  }
+});
+
+
+// ================= INQUIRIES API (Leads) =================
+
+// Submit inquiry (Contact Page & Properties detail contact forms)
 app.post('/api/contact', async (req, res) => {
   try {
     const { name, email, phone, interest, message } = req.body;
@@ -25,35 +346,55 @@ app.post('/api/contact', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    console.log('Received inquiry:', { name, email, phone, interest, message });
+    const inquiry = await prisma.inquiry.create({
+      data: {
+        name,
+        email,
+        phone: phone || '',
+        interest: interest || 'General Inquiry',
+        message
+      }
+    });
 
-    // Try to save to User model if database is configured
-    try {
-      await prisma.user.create({
-        data: {
-          name,
-          email,
-        }
-      });
-      console.log('Successfully saved contact as user in database.');
-    } catch (dbErr) {
-      console.log('Database save skipped or failed (optional user logging):', dbErr.message);
-    }
+    console.log('Saved inquiry in SQLite:', inquiry);
 
-    return res.json({
+    res.json({
       success: true,
       message: 'Inquiry received. Our team will contact you within 24 hours.'
     });
   } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    console.error('Inquiry Submission Error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save lead inquiry' });
   }
 });
 
-// Get properties mock
-app.get('/api/properties', (req, res) => {
-  res.json({ success: true, message: 'Properties API' });
+// Fetch all inquiries (Admin)
+app.get('/api/inquiries', async (req, res) => {
+  try {
+    const inquiries = await prisma.inquiry.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, inquiries });
+  } catch (error) {
+    console.error('Fetch inquiries error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch inquiries' });
+  }
 });
+
+// Delete inquiry (Admin)
+app.delete('/api/inquiries/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.inquiry.delete({
+      where: { id }
+    });
+    res.json({ success: true, message: 'Inquiry deleted successfully' });
+  } catch (error) {
+    console.error('Delete inquiry error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete inquiry' });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, Suspense } from "react";
+import { useMemo, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X, MapPin, LayoutGrid, Rows3 } from "lucide-react";
 import SiteShell from "@/components/real-estate/site-shell";
@@ -27,8 +27,23 @@ function PropertiesContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [grid, setGrid] = useState<"grid" | "list">("grid");
 
+  const [dbProperties, setDbProperties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/properties")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setDbProperties(data.properties);
+        }
+      })
+      .catch((err) => console.error("Error loading properties:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
   const filtered = useMemo(() => {
-    let list = [...properties];
+    let list = [...dbProperties];
     if (category !== "All") list = list.filter((p) => p.category === category);
     if (area !== "All Areas") list = list.filter((p) => p.areaName === area || p.location.includes(area));
     if (search.trim()) {
@@ -39,7 +54,7 @@ function PropertiesContent() {
     if (sort === "Price: Low to High") list.sort((a, b) => a.priceValue - b.priceValue);
     if (sort === "Price: High to Low") list.sort((a, b) => b.priceValue - a.priceValue);
     return list;
-  }, [category, area, search, minPrice, sort]);
+  }, [category, area, search, minPrice, sort, dbProperties]);
 
   const clearFilters = () => {
     setCategory("All");
