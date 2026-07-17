@@ -30,10 +30,10 @@ app.post('/api/auth/login', (req, res) => {
 
     // Expected credentials from env (with secure fallback)
     const adminEmail = process.env.ADMIN_EMAIL || 'owner@imperial.com';
-    const adminHash = process.env.ADMIN_PASSWORD_HASH || '729a43a0e69882a7f51152a4f4efbd941bbbe500a89d2c2560fa5cf8bb730a4b'; // owner123
+    const adminHash = process.env.ADMIN_PASSWORD_HASH || '43a0d17178a9d26c9e0fe9a74b0b45e38d32f27aed887a008a54bf6e033bf7b9'; // owner123
 
     const staffEmail = process.env.STAFF_EMAIL || 'employee@imperial.com';
-    const staffHash = process.env.STAFF_PASSWORD_HASH || 'cc1d00c3cd2484a0d922ec96277ff34bcf1b707431e786bdf613dcf50dbbd9f8'; // employee123
+    const staffHash = process.env.STAFF_PASSWORD_HASH || '5b2f8e27e2e5b4081c03ce70b288c87bd1263140cbd1bd9ae078123509b7caff'; // employee123
 
     let role = null;
 
