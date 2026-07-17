@@ -15,7 +15,7 @@ model User {
   email     String   @unique
   name      String?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Agent {
@@ -62,7 +62,7 @@ model Property {
   yearBuilt    Int
   parking      Int?
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime @default(now()) @updatedAt
 }
 
 model Inquiry {
