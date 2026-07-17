@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const resolved = await params;
   try {
-    const res = await fetch(`http://localhost:5000/api/properties/${resolved.slug}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties/${resolved.slug}`);
     if (!res.ok) return { title: "Property Not Found | Imperial Estates" };
     const data = await res.json();
     if (!data.success || !data.property) return { title: "Property Not Found | Imperial Estates" };
@@ -29,7 +29,7 @@ export default async function PropertyDetailPage({
   const { slug } = await params;
   
   try {
-    const res = await fetch(`http://localhost:5000/api/properties/${slug}`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties/${slug}`, {
       cache: "no-store",
     });
     if (!res.ok) notFound();
@@ -40,7 +40,7 @@ export default async function PropertyDetailPage({
     const agent = property.agent || { id: 1, name: "Advisor", role: "Specialist", image: "/images/agent_1.png" };
     
     // Fetch similar properties for related
-    const relatedRes = await fetch("http://localhost:5000/api/properties");
+    const relatedRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties`);
     let related = [];
     if (relatedRes.ok) {
       const relatedData = await relatedRes.json();

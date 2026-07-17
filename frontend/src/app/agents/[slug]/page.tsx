@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const resolved = await params;
   try {
-    const res = await fetch(`http://localhost:5000/api/agents/${resolved.slug}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/agents/${resolved.slug}`);
     if (!res.ok) return { title: "Advisor Not Found | Imperial Estates" };
     const data = await res.json();
     if (!data.success || !data.agent) return { title: "Advisor Not Found | Imperial Estates" };
@@ -25,7 +25,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ sl
   const { slug } = await params;
   
   try {
-    const res = await fetch(`http://localhost:5000/api/agents/${slug}`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/agents/${slug}`, {
       cache: "no-store",
     });
     if (!res.ok) notFound();
@@ -34,7 +34,7 @@ export default async function AgentDetailPage({ params }: { params: Promise<{ sl
     const agent = data.agent;
 
     // Fetch properties listed by this agent
-    const propsRes = await fetch("http://localhost:5000/api/properties");
+    const propsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties`);
     let agentProperties = [];
     if (propsRes.ok) {
       const propsData = await propsRes.json();

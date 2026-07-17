@@ -12,7 +12,7 @@ export default function Agents() {
   const [dbAgents, setDbAgents] = useState<any[]>(agents);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/agents")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/agents`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.agents.length > 0) {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     // Call Express Backend API
-    const backendRes = await fetch("http://localhost:5000/api/contact", {
+    const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/contact`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

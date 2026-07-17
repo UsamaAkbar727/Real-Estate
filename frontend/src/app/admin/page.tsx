@@ -44,10 +44,11 @@ export default function AdminPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const [pRes, aRes, iRes] = await Promise.all([
-        fetch("http://localhost:5000/api/properties"),
-        fetch("http://localhost:5000/api/agents"),
-        fetch("http://localhost:5000/api/inquiries")
+        fetch(`${apiUrl}/api/properties`),
+        fetch(`${apiUrl}/api/agents`),
+        fetch(`${apiUrl}/api/inquiries`)
       ]);
 
       const [pData, aData, iData] = await Promise.all([
@@ -104,7 +105,7 @@ export default function AdminPage() {
   const deleteProperty = async (id: number) => {
     if (!confirm("Are you sure you want to delete this listing?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/properties/${id}`, { method: "DELETE" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         toast.success("Listing deleted successfully");
@@ -120,7 +121,7 @@ export default function AdminPage() {
   const deleteAgent = async (id: number) => {
     if (!confirm("Are you sure you want to delete this Advisor?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/agents/${id}`, { method: "DELETE" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/agents/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         toast.success("Advisor deleted successfully");
@@ -136,7 +137,7 @@ export default function AdminPage() {
   const deleteInquiry = async (id: number) => {
     if (!confirm("Delete this inquiry from records?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/inquiries/${id}`, { method: "DELETE" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/inquiries/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         toast.success("Inquiry removed");
@@ -161,9 +162,10 @@ export default function AdminPage() {
       features: propForm.features ? propForm.features.split(",").map(s => s.trim()) : []
     };
 
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     const url = editingProp 
-      ? `http://localhost:5000/api/properties/${editingProp.id}`
-      : "http://localhost:5000/api/properties";
+      ? `${apiUrl}/api/properties/${editingProp.id}`
+      : `${apiUrl}/api/properties`;
     
     const method = editingProp ? "PUT" : "POST";
 
@@ -195,9 +197,10 @@ export default function AdminPage() {
       specialties: agentForm.specialties.split(",").map(s => s.trim())
     };
 
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     const url = editingAgent
-      ? `http://localhost:5000/api/agents/${editingAgent.id}`
-      : "http://localhost:5000/api/agents";
+      ? `${apiUrl}/api/agents/${editingAgent.id}`
+      : `${apiUrl}/api/agents`;
 
     const method = editingAgent ? "PUT" : "POST";
 
