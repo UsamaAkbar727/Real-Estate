@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 
 export default function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [adminRole, setAdminRole] = useState<"owner" | "employee" | null>(null);
   const [activeTab, setActiveTab] = useState<"properties" | "agents" | "inquiries">("properties");
 
   // Live Database States
@@ -71,10 +73,18 @@ export default function AdminPage() {
   useEffect(() => {
     // Check local storage session
     const session = localStorage.getItem("adminSession");
-    if (session === "active") {
+    const role = localStorage.getItem("adminRole") as "owner" | "employee";
+    if (session === "active" && role) {
       setIsLoggedIn(true);
+      setAdminRole(role);
     }
   }, []);
+
+  useEffect(() => {
+    if (adminRole === "employee" && activeTab === "agents") {
+      setActiveTab("properties");
+    }
+  }, [adminRole, activeTab]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -85,19 +95,29 @@ export default function AdminPage() {
   // Login handler
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "admin123") {
+    if (email === "owner@imperial.com" && password === "owner123") {
       setIsLoggedIn(true);
+      setAdminRole("owner");
       localStorage.setItem("adminSession", "active");
+      localStorage.setItem("adminRole", "owner");
       toast.success("Successfully logged into Administrator Dashboard");
+    } else if (email === "employee@imperial.com" && password === "employee123") {
+      setIsLoggedIn(true);
+      setAdminRole("employee");
+      localStorage.setItem("adminSession", "active");
+      localStorage.setItem("adminRole", "employee");
+      toast.success("Successfully logged into Staff Portal");
     } else {
-      toast.error("Incorrect administrator security key. Access denied.");
+      toast.error("Incorrect email or security password. Access denied.");
     }
   };
 
   // Logout handler
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setAdminRole(null);
     localStorage.removeItem("adminSession");
+    localStorage.removeItem("adminRole");
     toast.success("Successfully logged out");
   };
 
@@ -274,24 +294,68 @@ export default function AdminPage() {
   if (!isLoggedIn) {
     return (
       <SiteShell>
-        <div className="min-h-[85vh] bg-luxe-soft flex items-center justify-center px-6">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-luxe p-8 text-center border border-border relative overflow-hidden">
+        <div className="min-h-[85vh] bg-luxe-soft flex items-center justify-center py-12 px-6">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-luxe p-8 border border-border relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[var(--royal)] to-[var(--gold)]" />
             <div className="h-16 w-16 rounded-2xl bg-[var(--royal)]/8 text-[var(--royal)] flex items-center justify-center mx-auto mb-6">
               <Lock className="h-7 w-7" />
             </div>
-            <h1 className="font-display text-2xl font-bold text-[var(--ink)]">Administrator Control</h1>
-            <p className="text-sm text-[var(--muted-foreground)] mt-2 mb-6">Imperial Estates backend database gatekeeper. Please enter your administrator key.</p>
+            <h1 className="font-display text-2xl font-bold text-center text-[var(--ink)]">Staff & Admin Portal</h1>
+            <p className="text-xs text-[var(--muted-foreground)] text-center mt-2 mb-6">Imperial Estates backend database gatekeeper. Please enter your portal credentials.</p>
+            
+            {/* Quick Access Credentials */}
+            <div className="mb-6 p-4 rounded-2xl bg-luxe-soft border border-border/60">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-deep)] mb-3 text-center">Test Access Portals (Click to Autofill)</div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("owner@imperial.com");
+                    setPassword("owner123");
+                  }}
+                  className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-white border border-border/65 hover:border-[var(--gold)] hover:bg-[var(--gold)]/5 text-[var(--ink)] transition-all flex items-center justify-between text-left"
+                >
+                  <span className="flex items-center gap-1.5">🔑 <span>Owner (Full Access)</span></span>
+                  <span className="text-[9px] uppercase tracking-wider bg-gold-light/40 px-2 py-0.5 rounded text-[var(--gold-deep)] font-bold">Autofill</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail("employee@imperial.com");
+                    setPassword("employee123");
+                  }}
+                  className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-white border border-border/65 hover:border-[var(--royal)] hover:bg-[var(--royal)]/5 text-[var(--ink)] transition-all flex items-center justify-between text-left"
+                >
+                  <span className="flex items-center gap-1.5">👤 <span>Employee (Limited)</span></span>
+                  <span className="text-[9px] uppercase tracking-wider bg-[var(--royal)]/10 px-2 py-0.5 rounded text-[var(--royal)] font-bold">Autofill</span>
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="password"
-                required
-                placeholder="Enter Access Key (default: admin123)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm text-center focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors"
-              />
-              <button type="submit" className="w-full btn-gold py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[var(--ink)]/80">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@imperialestates.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors animate-fade-in"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-[var(--ink)]/80">Security Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors animate-fade-in"
+                />
+              </div>
+              <button type="submit" className="w-full btn-gold py-3.5 mt-2 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all">
                 Unlock Dashboard <ArrowRight className="h-4 w-4" />
               </button>
             </form>
@@ -308,8 +372,20 @@ export default function AdminPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
             <div>
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold-deep)]">Portal Active</span>
-              <h1 className="font-display text-3xl font-bold text-[var(--ink)] mt-1">Admin Database Dashboard</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--gold-deep)]">Portal Active</span>
+                <span className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border",
+                  adminRole === "owner" 
+                    ? "bg-[var(--gold)]/10 text-[var(--gold-deep)] border-[var(--gold)]/20" 
+                    : "bg-[var(--royal)]/8 text-[var(--royal)] border-[var(--royal)]/15"
+                )}>
+                  {adminRole === "owner" ? "Owner (Full Access)" : "Employee Portal"}
+                </span>
+              </div>
+              <h1 className="font-display text-3xl font-bold text-[var(--ink)] mt-1">
+                {adminRole === "owner" ? "Admin Database Dashboard" : "Staff Database Dashboard"}
+              </h1>
             </div>
             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-border text-[var(--ink)] hover:text-red-500 font-semibold text-sm shadow-sm transition-all shrink-0">
               <LogOut className="h-4 w-4" /> Log Out
@@ -317,7 +393,7 @@ export default function AdminPage() {
           </div>
 
           {/* Stats Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div className="rounded-2xl bg-white shadow-luxe p-6 flex items-center gap-5 border border-border/50">
               <div className="h-12 w-12 rounded-xl bg-[var(--royal)]/8 text-[var(--royal)] flex items-center justify-center">
                 <Building2 className="h-6 w-6" />
@@ -327,15 +403,17 @@ export default function AdminPage() {
                 <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold">Total Properties</div>
               </div>
             </div>
-            <div className="rounded-2xl bg-white shadow-luxe p-6 flex items-center gap-5 border border-border/50">
-              <div className="h-12 w-12 rounded-xl bg-[var(--gold)]/8 text-[var(--gold-deep)] flex items-center justify-center">
-                <Users className="h-6 w-6" />
+            {adminRole === "owner" && (
+              <div className="rounded-2xl bg-white shadow-luxe p-6 flex items-center gap-5 border border-border/50">
+                <div className="h-12 w-12 rounded-xl bg-[var(--gold)]/8 text-[var(--gold-deep)] flex items-center justify-center">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[var(--ink)]">{agents.length}</div>
+                  <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold">Active Advisors</div>
+                </div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-[var(--ink)]">{agents.length}</div>
-                <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold">Active Advisors</div>
-              </div>
-            </div>
+            )}
             <div className="rounded-2xl bg-white shadow-luxe p-6 flex items-center gap-5 border border-border/50">
               <div className="h-12 w-12 rounded-xl bg-[var(--emerald-brand)]/8 text-[var(--emerald-brand)] flex items-center justify-center">
                 <MessageSquare className="h-6 w-6" />
@@ -353,7 +431,7 @@ export default function AdminPage() {
               { id: "properties", label: "Properties", count: properties.length },
               { id: "agents", label: "Advisors", count: agents.length },
               { id: "inquiries", label: "Inquiries/Leads", count: inquiries.length }
-            ].map((t) => (
+            ].filter(t => adminRole === "owner" || t.id !== "agents").map((t) => (
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id as any)}
@@ -393,12 +471,14 @@ export default function AdminPage() {
                           For {p.type}
                         </div>
                         <div className="absolute top-3 right-3 flex gap-2">
-                          <button onClick={() => startEditProp(p)} className="h-8 w-8 rounded-full bg-white text-[var(--royal)] hover:bg-[var(--royal)] hover:text-white flex items-center justify-center shadow transition-colors">
+                          <button onClick={() => startEditProp(p)} className="h-8 w-8 rounded-full bg-white text-[var(--royal)] hover:bg-[var(--royal)] hover:text-white flex items-center justify-center shadow transition-colors" title="Edit Listing">
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => deleteProperty(p.id)} className="h-8 w-8 rounded-full bg-white text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center shadow transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {adminRole === "owner" && (
+                            <button onClick={() => deleteProperty(p.id)} className="h-8 w-8 rounded-full bg-white text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center shadow transition-colors" title="Delete Listing">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                         <div className="p-5">
                           <h3 className="font-display font-bold text-lg text-[var(--ink)] truncate">{p.title}</h3>
@@ -465,7 +545,7 @@ export default function AdminPage() {
                             <th className="p-4">Topic / Interest</th>
                             <th className="p-4">Message</th>
                             <th className="p-4">Date Recieved</th>
-                            <th className="p-4 text-center">Action</th>
+                            {adminRole === "owner" && <th className="p-4 text-center">Action</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -485,16 +565,18 @@ export default function AdminPage() {
                               <td className="p-4 text-xs text-[var(--muted-foreground)]">
                                 {new Date(i.createdAt).toLocaleString()}
                               </td>
-                              <td className="p-4 text-center">
-                                <button onClick={() => deleteInquiry(i.id)} className="text-red-500 hover:text-red-700 p-1">
-                                  <Trash2 className="h-4 w-4 mx-auto" />
-                                </button>
-                              </td>
+                              {adminRole === "owner" && (
+                                <td className="p-4 text-center">
+                                  <button onClick={() => deleteInquiry(i.id)} className="text-red-500 hover:text-red-700 p-1" title="Delete Inquiry">
+                                    <Trash2 className="h-4 w-4 mx-auto" />
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                           {inquiries.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-[var(--muted-foreground)]">
+                              <td colSpan={adminRole === "owner" ? 6 : 5} className="p-8 text-center text-[var(--muted-foreground)]">
                                 No contact inquiry leads saved in the database yet.
                               </td>
                             </tr>

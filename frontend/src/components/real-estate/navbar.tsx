@@ -60,6 +60,10 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <span className="text-[var(--gold-light)]">Lahore&apos;s #1 Luxury Real Estate Firm</span>
             <span className="h-3 w-px bg-white/20" />
+            <SafeLink href="/admin" className="hover:text-[var(--gold-light)] transition-colors font-medium flex items-center gap-1">
+              Staff Portal
+            </SafeLink>
+            <span className="h-3 w-px bg-white/20" />
             <SafeLink href="/contact" className="hover:text-[var(--gold-light)] transition-colors">Book a Consultation</SafeLink>
           </div>
         </div>
@@ -343,9 +347,12 @@ function MobileNav({ onClose }: { onClose: () => void }) {
           </SafeLink>
         ))}
       </div>
-      <div className="p-5 border-t border-border">
+      <div className="p-5 border-t border-border space-y-3">
         <SafeLink href="/contact" onClick={onClose} className="btn-gold w-full px-5 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
           <Phone className="h-4 w-4" /> Book a Consultation
+        </SafeLink>
+        <SafeLink href="/admin" onClick={onClose} className="w-full px-5 py-2.5 rounded-xl text-xs font-semibold text-center block text-[var(--muted-foreground)] hover:text-[var(--royal)] bg-luxe-soft transition-colors">
+          Staff Portal
         </SafeLink>
       </div>
     </div>
