@@ -17,6 +17,11 @@ export default function AdminPage() {
   const [adminRole, setAdminRole] = useState<"owner" | "employee" | null>(null);
   const [activeTab, setActiveTab] = useState<"properties" | "agents" | "inquiries">("properties");
 
+  // Inquiries Search & Filter States
+  const [inquirySearch, setInquirySearch] = useState("");
+  const [inquiryFilter, setInquiryFilter] = useState<"All" | "New" | "Contacted" | "Closed">("All");
+  const [interestFilter, setInterestFilter] = useState("All");
+
   // Live Database States
   const [properties, setProperties] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
@@ -166,6 +171,65 @@ export default function AdminPage() {
     } catch {
       toast.error("Network error.");
     }
+  };
+
+  const updateInquiryStatus = async (id: number, newStatus: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/inquiries/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Inquiry status updated to ${newStatus}`);
+        fetchData();
+      } else {
+        toast.error(data.error || "Failed to update status");
+      }
+    } catch {
+      toast.error("Network error. Could not update status.");
+    }
+  };
+
+  // Filter inquiries
+  const filteredInquiries = inquiries.filter(i => {
+    const matchesSearch = 
+      i.name.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+      i.email.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+      i.message.toLowerCase().includes(inquirySearch.toLowerCase());
+    
+    const matchesStatus = inquiryFilter === "All" || (i.status || "New") === inquiryFilter;
+    const matchesInterest = interestFilter === "All" || i.interest === interestFilter;
+
+    return matchesSearch && matchesStatus && matchesInterest;
+  });
+
+  const exportToCSV = () => {
+    const headers = ["ID", "Name", "Email", "Phone", "Interest/Topic", "Message", "Status", "Date Created"];
+    const rows = filteredInquiries.map(i => [
+      i.id,
+      `"${i.name.replace(/"/g, '""')}"`,
+      `"${i.email.replace(/"/g, '""')}"`,
+      `"${i.phone.replace(/"/g, '""')}"`,
+      `"${i.interest.replace(/"/g, '""')}"`,
+      `"${i.message.replace(/"/g, '""')}"`,
+      `"${i.status || "New"}"`,
+      `"${new Date(i.createdAt).toLocaleString()}"`
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `imperial_estates_leads_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("CSV Export downloaded successfully");
   };
 
   // Property Form Submit
@@ -365,6 +429,22 @@ export default function AdminPage() {
     );
   }
 
+  // Property Stats calculations for Premium Analytics
+  const totalProperties = properties.length;
+  const saleProps = properties.filter((p) => p.type === "Sale" || p.type === "sale");
+  const rentProps = properties.filter((p) => p.type === "Rent" || p.type === "rent");
+  const salePercentage = totalProperties > 0 ? Math.round((saleProps.length / totalProperties) * 100) : 0;
+  const rentPercentage = totalProperties > 0 ? Math.round((rentProps.length / totalProperties) * 100) : 0;
+
+  const villasCount = properties.filter((p) => p.category === "Villa").length;
+  const apartmentsCount = properties.filter((p) => p.category === "Apartment").length;
+  const penthousesCount = properties.filter((p) => p.category === "Penthouse").length;
+  const plotsCount = properties.filter((p) => p.category === "Plot").length;
+
+  const avgSalePrice = saleProps.length > 0
+    ? Math.round(saleProps.reduce((sum, p) => sum + (parseFloat(p.priceValue) || 0), 0) / saleProps.length)
+    : 0;
+
   return (
     <SiteShell>
       <section className="bg-luxe-soft min-h-screen py-10">
@@ -421,6 +501,80 @@ export default function AdminPage() {
               <div>
                 <div className="text-2xl font-bold text-[var(--ink)]">{inquiries.length}</div>
                 <div className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-semibold">User Leads / Inquiries</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Premium Analytics Breakdown Section */}
+          <div className="bg-white border border-border/85 rounded-3xl p-6 mb-8 shadow-sm">
+            <h3 className="font-display font-bold text-[var(--ink)] text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5">
+              <span>📊</span> Properties & Market Analytics
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {/* Sale vs Rent Card */}
+              <div className="p-4 rounded-2xl bg-luxe-soft border border-border/50">
+                <div className="text-[10px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider">Market Type Ratio</div>
+                <div className="text-2xl font-black text-[var(--royal)] mt-2">{salePercentage}% / {rentPercentage}%</div>
+                <div className="text-[10px] text-[var(--ink)]/60 mt-1">Sale vs Rent properties</div>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden flex">
+                  <div className="bg-[var(--royal)] h-full" style={{ width: `${salePercentage}%` }} />
+                  <div className="bg-[var(--gold)] h-full" style={{ width: `${rentPercentage}%` }} />
+                </div>
+              </div>
+
+              {/* Categories count progress bars */}
+              <div className="p-4 rounded-2xl bg-luxe-soft border border-border/50 col-span-2">
+                <div className="text-[10px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider mb-2">Category Distribution</div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-[var(--ink)]">
+                      <span>Villas</span>
+                      <span>{villasCount}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                      <div className="bg-[var(--royal)] h-full" style={{ width: `${totalProperties > 0 ? (villasCount / totalProperties) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-[var(--ink)]">
+                      <span>Apartments</span>
+                      <span>{apartmentsCount}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                      <div className="bg-[var(--gold-deep)] h-full" style={{ width: `${totalProperties > 0 ? (apartmentsCount / totalProperties) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-[var(--ink)]">
+                      <span>Penthouses</span>
+                      <span>{penthousesCount}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                      <div className="bg-emerald-500 h-full" style={{ width: `${totalProperties > 0 ? (penthousesCount / totalProperties) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-[var(--ink)]">
+                      <span>Plots</span>
+                      <span>{plotsCount}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                      <div className="bg-slate-700 h-full" style={{ width: `${totalProperties > 0 ? (plotsCount / totalProperties) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Average valuation of sale portfolio */}
+              <div className="p-4 rounded-2xl bg-luxe-soft border border-border/50">
+                <div className="text-[10px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider">Average Sale Price</div>
+                <div className="text-2xl font-black text-[var(--gold-deep)] mt-2">
+                  PKR {avgSalePrice > 0 ? (avgSalePrice / 10000000).toFixed(1) + " Crore" : "0"}
+                </div>
+                <div className="text-[10px] text-[var(--ink)]/60 mt-1">Average asking price of sale listings</div>
+                <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg w-fit">
+                  📈 Premium Inventory
+                </div>
               </div>
             </div>
           </div>
@@ -533,8 +687,60 @@ export default function AdminPage() {
 
               {/* Inquiries Panel */}
               {activeTab === "inquiries" && (
-                <div className="space-y-6">
-                  <h2 className="font-display text-xl font-bold text-[var(--ink)]">Client Lead Submissions</h2>
+                <div className="space-y-6 animate-fade-in">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="font-display text-xl font-bold text-[var(--ink)]">Client Lead Submissions</h2>
+                      <p className="text-xs text-[var(--muted-foreground)] mt-1">Manage leads, update transaction funnel status, and download records.</p>
+                    </div>
+                    <button 
+                      onClick={exportToCSV}
+                      className="px-4 py-2.5 rounded-xl border border-border bg-white text-xs font-bold text-[var(--ink)] hover:border-[var(--gold)] hover:text-[var(--gold-deep)] shadow-sm flex items-center gap-2 transition-all self-start md:self-auto"
+                    >
+                      📥 Export to Excel (CSV)
+                    </button>
+                  </div>
+
+                  {/* Filters Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-5 bg-white border border-border/80 rounded-3xl shadow-sm">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Search Leads</label>
+                      <input 
+                        type="text"
+                        placeholder="Search name, email, message..."
+                        value={inquirySearch}
+                        onChange={(e) => setInquirySearch(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-luxe-soft text-xs focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Filter by Status</label>
+                      <select 
+                        value={inquiryFilter}
+                        onChange={(e) => setInquiryFilter(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-luxe-soft text-xs focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors"
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="New">🔴 New</option>
+                        <option value="Contacted">🟡 Contacted</option>
+                        <option value="Closed">🟢 Closed</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Filter by Interest</label>
+                      <select 
+                        value={interestFilter}
+                        onChange={(e) => setInterestFilter(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-luxe-soft text-xs focus:outline-none focus:border-[var(--royal)] focus:bg-white transition-colors"
+                      >
+                        <option value="All">All Interests</option>
+                        {Array.from(new Set(inquiries.map(i => i.interest))).map(interest => (
+                          <option key={interest} value={interest}>{interest}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="bg-white border border-border rounded-3xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse text-sm">
@@ -544,12 +750,13 @@ export default function AdminPage() {
                             <th className="p-4">Contact Info</th>
                             <th className="p-4">Topic / Interest</th>
                             <th className="p-4">Message</th>
+                            <th className="p-4 text-center">Status</th>
                             <th className="p-4">Date Recieved</th>
                             {adminRole === "owner" && <th className="p-4 text-center">Action</th>}
                           </tr>
                         </thead>
                         <tbody>
-                          {inquiries.map((i) => (
+                          {filteredInquiries.map((i) => (
                             <tr key={i.id} className="border-b border-border hover:bg-luxe-soft/40 transition-colors">
                               <td className="p-4 font-bold text-[var(--ink)]">{i.name}</td>
                               <td className="p-4 space-y-0.5">
@@ -561,7 +768,23 @@ export default function AdminPage() {
                                   {i.interest}
                                 </span>
                               </td>
-                              <td className="p-4 max-w-xs truncate text-[var(--ink)]/70">{i.message}</td>
+                              <td className="p-4 max-w-xs truncate text-[var(--ink)]/70" title={i.message}>{i.message}</td>
+                              <td className="p-4 text-center">
+                                <select 
+                                  value={i.status || "New"}
+                                  onChange={(e) => updateInquiryStatus(i.id, e.target.value)}
+                                  className={cn(
+                                    "px-2.5 py-1.5 rounded-lg border text-xs font-bold focus:outline-none transition-colors cursor-pointer",
+                                    (i.status === "Closed" || i.status === "resolved") && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                                    i.status === "Contacted" && "bg-amber-50 text-amber-700 border-amber-200",
+                                    (!i.status || i.status === "New") && "bg-red-50 text-red-700 border-red-200"
+                                  )}
+                                >
+                                  <option value="New">🔴 New</option>
+                                  <option value="Contacted">🟡 Contacted</option>
+                                  <option value="Closed">🟢 Closed</option>
+                                </select>
+                              </td>
                               <td className="p-4 text-xs text-[var(--muted-foreground)]">
                                 {new Date(i.createdAt).toLocaleString()}
                               </td>
@@ -574,10 +797,10 @@ export default function AdminPage() {
                               )}
                             </tr>
                           ))}
-                          {inquiries.length === 0 && (
+                          {filteredInquiries.length === 0 && (
                             <tr>
-                              <td colSpan={adminRole === "owner" ? 6 : 5} className="p-8 text-center text-[var(--muted-foreground)]">
-                                No contact inquiry leads saved in the database yet.
+                              <td colSpan={adminRole === "owner" ? 7 : 6} className="p-8 text-center text-[var(--muted-foreground)]">
+                                No matching lead submissions found.
                               </td>
                             </tr>
                           )}

@@ -72,5 +72,6 @@ model Inquiry {
   phone     String
   interest  String
   message   String
+  status    String   @default("New")
   createdAt DateTime @default(now())
 }

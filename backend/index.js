@@ -381,6 +381,28 @@ app.get('/api/inquiries', async (req, res) => {
   }
 });
 
+// Update inquiry status (Admin/Staff)
+app.put('/api/inquiries/:id/status', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status } = req.body;
+
+    if (!['New', 'Contacted', 'Closed'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status value' });
+    }
+
+    const updated = await prisma.inquiry.update({
+      where: { id },
+      data: { status }
+    });
+
+    res.json({ success: true, inquiry: updated });
+  } catch (error) {
+    console.error('Update inquiry status error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update inquiry status' });
+  }
+});
+
 // Delete inquiry (Admin)
 app.delete('/api/inquiries/:id', async (req, res) => {
   try {
