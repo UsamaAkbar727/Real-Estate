@@ -15,8 +15,93 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const fs = require('fs');
 const path = require('path');
 
-// Image upload API
-app.post('/api/upload', (req, res) => {
+// Authentication System
+const crypto = require('crypto');
+const activeSessions = new Map();
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Missing email or password' });
+    }
+
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+
+    // Expected credentials from env (with secure fallback)
+    const adminEmail = process.env.ADMIN_EMAIL || 'owner@imperial.com';
+    const adminHash = process.env.ADMIN_PASSWORD_HASH || '729a43a0e69882a7f51152a4f4efbd941bbbe500a89d2c2560fa5cf8bb730a4b'; // owner123
+
+    const staffEmail = process.env.STAFF_EMAIL || 'employee@imperial.com';
+    const staffHash = process.env.STAFF_PASSWORD_HASH || 'cc1d00c3cd2484a0d922ec96277ff34bcf1b707431e786bdf613dcf50dbbd9f8'; // employee123
+
+    let role = null;
+
+    if (email === adminEmail && hashedPassword === adminHash) {
+      role = 'owner';
+    } else if (email === staffEmail && hashedPassword === staffHash) {
+      role = 'employee';
+    }
+
+    if (!role) {
+      return res.status(401).json({ success: false, error: 'Invalid email or security password' });
+    }
+
+    // Generate secure session token
+    const token = crypto.randomBytes(32).toString('hex');
+    activeSessions.set(token, { email, role });
+
+    res.json({
+      success: true,
+      token,
+      role,
+      message: 'Logged in successfully'
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, error: 'Internal auth error' });
+  }
+});
+
+app.post('/api/auth/session', (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Missing token' });
+  }
+  const session = activeSessions.get(token);
+  if (!session) {
+    return res.status(401).json({ success: false, error: 'Invalid session' });
+  }
+  res.json({
+    success: true,
+    role: session.role,
+    email: session.email
+  });
+});
+
+// Middleware to require authentication on modify actions
+const requireAuth = (roleRequired) => {
+  return (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ success: false, error: 'Authorization header missing' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const session = activeSessions.get(token);
+    if (!session) {
+      return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
+    }
+    if (roleRequired && roleRequired === 'owner' && session.role !== 'owner') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Owner level access required.' });
+    }
+    req.user = session;
+    next();
+  };
+};
+
+
+// Image upload API (Authenticated)
+app.post('/api/upload', requireAuth(), (req, res) => {
   try {
     const { name, base64 } = req.body;
     if (!name || !base64) {
@@ -56,6 +141,7 @@ app.post('/api/upload', (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to upload image' });
   }
 });
+
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -161,7 +247,7 @@ app.get('/api/properties/:slug', async (req, res) => {
 });
 
 // Create property (Admin)
-app.post('/api/properties', async (req, res) => {
+app.post('/api/properties', requireAuth(), async (req, res) => {
   try {
     const data = req.body;
     
@@ -204,7 +290,7 @@ app.post('/api/properties', async (req, res) => {
 });
 
 // Update property (Admin)
-app.put('/api/properties/:id', async (req, res) => {
+app.put('/api/properties/:id', requireAuth(), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const data = req.body;
@@ -245,7 +331,7 @@ app.put('/api/properties/:id', async (req, res) => {
 });
 
 // Delete property (Admin)
-app.delete('/api/properties/:id', async (req, res) => {
+app.delete('/api/properties/:id', requireAuth('owner'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     await prisma.property.delete({
@@ -309,7 +395,7 @@ app.get('/api/agents/:slug', async (req, res) => {
 });
 
 // Create agent (Admin)
-app.post('/api/agents', async (req, res) => {
+app.post('/api/agents', requireAuth('owner'), async (req, res) => {
   try {
     const data = req.body;
     const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -338,7 +424,7 @@ app.post('/api/agents', async (req, res) => {
 });
 
 // Update agent (Admin)
-app.put('/api/agents/:id', async (req, res) => {
+app.put('/api/agents/:id', requireAuth('owner'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const data = req.body;
@@ -367,7 +453,7 @@ app.put('/api/agents/:id', async (req, res) => {
 });
 
 // Delete agent (Admin)
-app.delete('/api/agents/:id', async (req, res) => {
+app.delete('/api/agents/:id', requireAuth('owner'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     await prisma.agent.delete({
@@ -415,7 +501,7 @@ app.post('/api/contact', async (req, res) => {
 });
 
 // Fetch all inquiries (Admin)
-app.get('/api/inquiries', async (req, res) => {
+app.get('/api/inquiries', requireAuth(), async (req, res) => {
   try {
     const inquiries = await prisma.inquiry.findMany({
       orderBy: { createdAt: 'desc' }
@@ -428,7 +514,7 @@ app.get('/api/inquiries', async (req, res) => {
 });
 
 // Update inquiry status (Admin/Staff)
-app.put('/api/inquiries/:id/status', async (req, res) => {
+app.put('/api/inquiries/:id/status', requireAuth(), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { status } = req.body;
@@ -450,7 +536,7 @@ app.put('/api/inquiries/:id/status', async (req, res) => {
 });
 
 // Delete inquiry (Admin)
-app.delete('/api/inquiries/:id', async (req, res) => {
+app.delete('/api/inquiries/:id', requireAuth('owner'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     await prisma.inquiry.delete({

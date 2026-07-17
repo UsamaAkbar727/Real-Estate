@@ -55,10 +55,13 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const token = localStorage.getItem("adminToken");
+      const headers = token ? { "Authorization": `Bearer ${token}` } : {};
+
       const [pRes, aRes, iRes] = await Promise.all([
         fetch(`${apiUrl}/api/properties`),
         fetch(`${apiUrl}/api/agents`),
-        fetch(`${apiUrl}/api/inquiries`)
+        fetch(`${apiUrl}/api/inquiries`, { headers })
       ]);
 
       const [pData, aData, iData] = await Promise.all([
@@ -69,7 +72,14 @@ export default function AdminPage() {
 
       if (pData.success) setProperties(pData.properties);
       if (aData.success) setAgents(aData.agents);
-      if (iData.success) setInquiries(iData.inquiries);
+      
+      if (iData.success) {
+        setInquiries(iData.inquiries);
+      } else {
+        if (iRes.status === 401) {
+          handleLogout();
+        }
+      }
     } catch (err) {
       console.error("Fetch admin data error:", err);
       toast.error("Failed to sync database. Is the Express server running?");
@@ -79,12 +89,31 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // Check local storage session
-    const session = localStorage.getItem("adminSession");
+    // Check session on load
+    const token = localStorage.getItem("adminToken");
     const role = localStorage.getItem("adminRole") as "owner" | "employee";
-    if (session === "active" && role) {
-      setIsLoggedIn(true);
-      setAdminRole(role);
+    if (token && role) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      fetch(`${apiUrl}/api/auth/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setIsLoggedIn(true);
+          setAdminRole(data.role);
+        } else {
+          localStorage.removeItem("adminToken");
+          localStorage.removeItem("adminRole");
+        }
+      })
+      .catch(() => {
+        // Offline fallback
+        setIsLoggedIn(true);
+        setAdminRole(role);
+      });
     }
   }, []);
 
@@ -101,22 +130,27 @@ export default function AdminPage() {
   }, [isLoggedIn]);
 
   // Login handler
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === "owner@imperial.com" && password === "owner123") {
-      setIsLoggedIn(true);
-      setAdminRole("owner");
-      localStorage.setItem("adminSession", "active");
-      localStorage.setItem("adminRole", "owner");
-      toast.success("Successfully logged into Administrator Dashboard");
-    } else if (email === "employee@imperial.com" && password === "employee123") {
-      setIsLoggedIn(true);
-      setAdminRole("employee");
-      localStorage.setItem("adminSession", "active");
-      localStorage.setItem("adminRole", "employee");
-      toast.success("Successfully logged into Staff Portal");
-    } else {
-      toast.error("Incorrect email or security password. Access denied.");
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsLoggedIn(true);
+        setAdminRole(data.role);
+        localStorage.setItem("adminToken", data.token);
+        localStorage.setItem("adminRole", data.role);
+        toast.success(data.role === "owner" ? "Successfully logged into Administrator Dashboard" : "Successfully logged into Staff Portal");
+      } else {
+        toast.error(data.error || "Login failed. Access denied.");
+      }
+    } catch {
+      toast.error("Network error. Could not connect to authentication server.");
     }
   };
 
@@ -124,7 +158,7 @@ export default function AdminPage() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setAdminRole(null);
-    localStorage.removeItem("adminSession");
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("adminRole");
     toast.success("Successfully logged out");
   };
@@ -146,7 +180,10 @@ export default function AdminPage() {
       else if (type === "agent") endpoint = `${apiUrl}/api/agents/${id}`;
       else if (type === "inquiry") endpoint = `${apiUrl}/api/inquiries/${id}`;
 
-      const res = await fetch(endpoint, { method: "DELETE" });
+      const res = await fetch(endpoint, { 
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("adminToken")}` }
+      });
       const data = await res.json();
       if (data.success) {
         toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
@@ -167,7 +204,10 @@ export default function AdminPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const res = await fetch(`${apiUrl}/api/inquiries/${id}/status`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("adminToken")}`
+        },
         body: JSON.stringify({ status: newStatus })
       });
       const data = await res.json();
@@ -252,7 +292,10 @@ export default function AdminPage() {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("adminToken")}`
+        },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -287,7 +330,10 @@ export default function AdminPage() {
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("adminToken")}`
+        },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
@@ -320,7 +366,10 @@ export default function AdminPage() {
           try {
             const res = await fetch(`${apiUrl}/api/upload`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("adminToken")}`
+              },
               body: JSON.stringify({ name: file.name, base64 })
             });
             const data = await res.json();
