@@ -47,6 +47,9 @@ export default function AdminPage() {
     phone: "", email: ""
   });
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; type: "property" | "agent" | "inquiry"; name: string } | null>(null);
+
   // Fetch Database
   const fetchData = async () => {
     setLoading(true);
@@ -127,49 +130,35 @@ export default function AdminPage() {
   };
 
   // Delete handlers
-  const deleteProperty = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this listing?")) return;
+  const triggerDeleteConfirm = (id: number, type: "property" | "agent" | "inquiry", name: string) => {
+    setDeleteTarget({ id, type, name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    const { id, type } = deleteTarget;
+    
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/properties/${id}`, { method: "DELETE" });
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      let endpoint = "";
+      if (type === "property") endpoint = `${apiUrl}/api/properties/${id}`;
+      else if (type === "agent") endpoint = `${apiUrl}/api/agents/${id}`;
+      else if (type === "inquiry") endpoint = `${apiUrl}/api/inquiries/${id}`;
+
+      const res = await fetch(endpoint, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast.success("Listing deleted successfully");
+        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully`);
         fetchData();
       } else {
-        toast.error(data.error || "Failed to delete listing");
+        toast.error(data.error || `Failed to delete ${type}`);
       }
     } catch {
       toast.error("Network error. Could not delete.");
-    }
-  };
-
-  const deleteAgent = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this Advisor?")) return;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/agents/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Advisor deleted successfully");
-        fetchData();
-      } else {
-        toast.error(data.error || "Failed to delete Advisor");
-      }
-    } catch {
-      toast.error("Network error.");
-    }
-  };
-
-  const deleteInquiry = async (id: number) => {
-    if (!confirm("Delete this inquiry from records?")) return;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/inquiries/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Inquiry removed");
-        fetchData();
-      }
-    } catch {
-      toast.error("Network error.");
+    } finally {
+      setDeleteConfirmOpen(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -305,6 +294,73 @@ export default function AdminPage() {
       }
     } catch {
       toast.error("Connection failed.");
+    }
+  };
+
+  // Image Upload helper using FileReader + API
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'cover' | 'gallery' | 'agent') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+    const uploadFile = async (file: File): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64 = reader.result as string;
+          try {
+            const res = await fetch(`${apiUrl}/api/upload`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: file.name, base64 })
+            });
+            const data = await res.json();
+            if (data.success) {
+              resolve(data.url);
+            } else {
+              toast.error(`Failed to upload ${file.name}: ${data.error}`);
+              resolve(null);
+            }
+          } catch {
+            toast.error(`Network error uploading ${file.name}`);
+            resolve(null);
+          }
+        };
+        reader.onerror = () => {
+          toast.error("Failed to read file");
+          resolve(null);
+        };
+      });
+    };
+
+    if (target === 'gallery') {
+      const uploadToast = toast.loading("Uploading gallery images...");
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadFile(files[i]);
+        if (url) uploadedUrls.push(url);
+      }
+      toast.dismiss(uploadToast);
+      if (uploadedUrls.length > 0) {
+        const currentGallery = propForm.gallery ? propForm.gallery.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const newGallery = [...currentGallery, ...uploadedUrls].join(', ');
+        setPropForm(prev => ({ ...prev, gallery: newGallery }));
+        toast.success(`Uploaded ${uploadedUrls.length} gallery image(s)`);
+      }
+    } else {
+      const uploadToast = toast.loading("Uploading image...");
+      const url = await uploadFile(files[0]);
+      toast.dismiss(uploadToast);
+      if (url) {
+        if (target === 'cover') {
+          setPropForm(prev => ({ ...prev, image: url }));
+        } else if (target === 'agent') {
+          setAgentForm(prev => ({ ...prev, image: url }));
+        }
+        toast.success("Image uploaded successfully");
+      }
     }
   };
 
@@ -629,7 +685,7 @@ export default function AdminPage() {
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           {adminRole === "owner" && (
-                            <button onClick={() => deleteProperty(p.id)} className="h-8 w-8 rounded-full bg-white text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center shadow transition-colors" title="Delete Listing">
+                            <button onClick={() => triggerDeleteConfirm(p.id, "property", p.title)} className="h-8 w-8 rounded-full bg-white text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center shadow transition-colors" title="Delete Listing">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -675,7 +731,7 @@ export default function AdminPage() {
                           <button onClick={() => startEditAgent(a)} className="h-8 w-8 rounded-lg bg-luxe-soft text-[var(--royal)] hover:bg-[var(--royal)] hover:text-white flex items-center justify-center transition-colors">
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => deleteAgent(a.id)} className="h-8 w-8 rounded-lg bg-luxe-soft text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors">
+                          <button onClick={() => triggerDeleteConfirm(a.id, "agent", a.name)} className="h-8 w-8 rounded-lg bg-luxe-soft text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -790,7 +846,7 @@ export default function AdminPage() {
                               </td>
                               {adminRole === "owner" && (
                                 <td className="p-4 text-center">
-                                  <button onClick={() => deleteInquiry(i.id)} className="text-red-500 hover:text-red-700 p-1" title="Delete Inquiry">
+                                  <button onClick={() => triggerDeleteConfirm(i.id, "inquiry", i.name)} className="text-red-500 hover:text-red-700 p-1" title="Delete Inquiry">
                                     <Trash2 className="h-4 w-4 mx-auto" />
                                   </button>
                                 </td>
@@ -915,7 +971,13 @@ export default function AdminPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Main Cover Image URL</label>
-                  <input type="text" required value={propForm.image} onChange={(e) => setPropForm({ ...propForm, image: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  <div className="flex gap-2 items-center">
+                    <input type="text" required value={propForm.image} onChange={(e) => setPropForm({ ...propForm, image: e.target.value })} className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                    <label className="cursor-pointer bg-white border border-border hover:bg-[var(--gold)]/10 text-[var(--ink)] font-bold text-xs py-3.5 px-4 rounded-xl flex items-center gap-1.5 shrink-0 transition-all select-none">
+                      📁 Upload Cover
+                      <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'cover')} className="hidden" />
+                    </label>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Assign Listing Agent</label>
@@ -928,7 +990,13 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Gallery Images (Comma separated URLs)</label>
-                <input type="text" placeholder="/images/interior_kitchen.png, /images/interior_bedroom.png" value={propForm.gallery} onChange={(e) => setPropForm({ ...propForm, gallery: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                <div className="flex gap-2 items-center">
+                  <input type="text" placeholder="/images/interior_kitchen.png, /images/interior_bedroom.png" value={propForm.gallery} onChange={(e) => setPropForm({ ...propForm, gallery: e.target.value })} className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  <label className="cursor-pointer bg-white border border-border hover:bg-[var(--gold)]/10 text-[var(--ink)] font-bold text-xs py-3.5 px-4 rounded-xl flex items-center gap-1.5 shrink-0 transition-all select-none">
+                    📁 Upload Images
+                    <input type="file" accept="image/*" multiple onChange={(e) => handleImageUpload(e, 'gallery')} className="hidden" />
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -1007,7 +1075,13 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Profile Photo URL</label>
-                <input type="text" required value={agentForm.image} onChange={(e) => setAgentForm({ ...agentForm, image: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                <div className="flex gap-2 items-center">
+                  <input type="text" required value={agentForm.image} onChange={(e) => setAgentForm({ ...agentForm, image: e.target.value })} className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  <label className="cursor-pointer bg-white border border-border hover:bg-[var(--gold)]/10 text-[var(--ink)] font-bold text-xs py-3.5 px-4 rounded-xl flex items-center gap-1.5 shrink-0 transition-all select-none">
+                    📁 Upload Photo
+                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'agent')} className="hidden" />
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -1025,6 +1099,41 @@ export default function AdminPage() {
                 <button type="submit" className="btn-gold px-6 py-3 rounded-xl text-sm font-semibold">Save Advisor</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-border p-6 flex flex-col items-center text-center animate-fade-in relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-red-500" />
+            <div className="h-14 w-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
+              <ShieldAlert className="h-8 w-8" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-[var(--ink)] mb-2">
+              Delete {deleteTarget.type.charAt(0).toUpperCase() + deleteTarget.type.slice(1)}?
+            </h3>
+            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed mb-6">
+              Are you sure you want to permanently delete <strong className="text-[var(--ink)] font-semibold">"{deleteTarget.name}"</strong>?<br/>
+              This action cannot be undone and will be permanently deleted from the database.
+            </p>
+            <div className="flex w-full gap-3">
+              <button 
+                type="button" 
+                onClick={() => { setDeleteConfirmOpen(false); setDeleteTarget(null); }} 
+                className="flex-1 py-3 rounded-xl border border-border text-xs font-bold hover:bg-luxe-soft transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={executeDelete} 
+                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors shadow-sm"
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

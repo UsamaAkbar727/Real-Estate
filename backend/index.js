@@ -9,7 +9,53 @@ const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+const fs = require('fs');
+const path = require('path');
+
+// Image upload API
+app.post('/api/upload', (req, res) => {
+  try {
+    const { name, base64 } = req.body;
+    if (!name || !base64) {
+      return res.status(400).json({ success: false, error: 'Missing name or base64 data' });
+    }
+
+    // Clean base64 prefix if exists (e.g. "data:image/png;base64,")
+    const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    let dataBuffer;
+    if (matches && matches.length === 3) {
+      dataBuffer = Buffer.from(matches[2], 'base64');
+    } else {
+      dataBuffer = Buffer.from(base64, 'base64');
+    }
+
+    // Path to the frontend public uploads directory
+    const uploadDir = path.join(__dirname, '../frontend/public/images/uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const ext = path.extname(name) || '.png';
+    const baseName = path.basename(name, ext).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${Date.now()}-${baseName}${ext}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    fs.writeFileSync(filePath, dataBuffer);
+
+    console.log(`Saved uploaded image: ${fileName}`);
+
+    res.json({
+      success: true,
+      url: `/images/uploads/${fileName}`
+    });
+  } catch (error) {
+    console.error('Upload API error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload image' });
+  }
+});
 
 // Health Check
 app.get('/api/health', (req, res) => {
