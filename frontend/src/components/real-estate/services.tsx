@@ -23,13 +23,20 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   sofa: Sofa,
 };
 
+const bgImages: Record<string, string> = {
+  key: "/images/villa_exterior_1.png",
+  tag: "/images/villa_exterior_2.png",
+  trending: "/images/skyline.png",
+  shield: "/images/interior_living.png",
+  scale: "/images/villa_exterior_3.png",
+};
+
 const accents = [
-  { bg: "from-[var(--royal)] to-[var(--royal-light)]", glow: "bg-[var(--royal)]/10", text: "text-[var(--royal)]" },
+  { bg: "from-[var(--royal)] to-[var(--royal-light)]", glow: "bg-[var(--royal)]/10", text: "text-[var(--royal-light)]" },
   { bg: "from-[var(--emerald-brand)] to-[#10b981]", glow: "bg-[var(--emerald-brand)]/10", text: "text-[var(--emerald-brand)]" },
-  { bg: "from-[var(--gold-deep)] to-[var(--gold-light)]", glow: "bg-[var(--gold)]/12", text: "text-[var(--gold-deep)]" },
-  { bg: "from-[var(--royal-deep)] to-[var(--royal)]", glow: "bg-[var(--royal)]/10", text: "text-[var(--royal)]" },
+  { bg: "from-[var(--gold-deep)] to-[var(--gold-light)]", glow: "bg-[var(--gold)]/12", text: "text-[var(--gold-light)]" },
+  { bg: "from-[var(--royal-deep)] to-[var(--royal)]", glow: "bg-[var(--royal)]/10", text: "text-[var(--royal-light)]" },
   { bg: "from-[var(--emerald-deep)] to-[var(--emerald-brand)]", glow: "bg-[var(--emerald-brand)]/10", text: "text-[var(--emerald-brand)]" },
-  { bg: "from-[var(--gold)] to-[var(--gold-light)]", glow: "bg-[var(--gold)]/12", text: "text-[var(--gold-deep)]" },
 ];
 
 export default function Services() {
@@ -73,6 +80,7 @@ export default function Services() {
             const Icon = iconMap[s.icon] ?? Key;
             const a = accents[i % accents.length];
             const isLarge = i === 0;
+            const bgImage = bgImages[s.icon] || "/images/villa_exterior_1.png";
             return (
               <motion.div
                 key={s.title}
@@ -81,50 +89,61 @@ export default function Services() {
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.55, delay: (i % 4) * 0.08, ease: [0.22, 1, 0.36, 1] }}
                 className={cn(
-                  "group relative rounded-3xl p-7 bg-white shadow-luxe hover:shadow-luxe-lg transition-all overflow-hidden cursor-pointer",
-                  isLarge && "lg:col-span-2 lg:row-span-2"
+                  "group relative rounded-3xl p-7 bg-slate-950 border border-white/5 hover:border-[var(--gold)]/30 shadow-luxe hover:shadow-luxe-lg transition-all overflow-hidden cursor-pointer min-h-[300px]",
+                  isLarge && "lg:col-span-2 lg:row-span-2 min-h-[420px]"
                 )}
               >
-                {/* Glow blob */}
-                <div className={cn("absolute -top-16 -right-16 w-48 h-48 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500", a.glow)} />
+                {/* Background Image with Overlay */}
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                  <img
+                    src={bgImage}
+                    alt={s.title}
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-30 group-hover:opacity-50"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/30 group-hover:via-slate-950/65 group-hover:to-slate-950/20 transition-all duration-500" />
+                </div>
 
-                <div className="relative flex flex-col h-full">
-                  <div className="flex items-start justify-between">
-                    <div className={cn("h-14 w-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white shadow-lg group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500", a.bg)}>
-                      <Icon className="h-6 w-6" />
+                <div className="relative flex flex-col h-full z-10 justify-between">
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <div className={cn("h-14 w-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white shadow-lg group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-500", a.bg)}>
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <span className={cn("font-display text-5xl font-bold opacity-20", a.text)}>
+                        0{i + 1}
+                      </span>
                     </div>
-                    <span className={cn("font-display text-5xl font-bold opacity-10", a.text)}>
-                      0{i + 1}
-                    </span>
+
+                    <h3 className={cn("font-display font-bold text-white mt-5 group-hover:text-[var(--gold-light)] transition-colors", isLarge ? "text-2xl" : "text-lg")}>
+                      {s.title}
+                    </h3>
+                    <p className={cn("text-white/70 mt-2 leading-relaxed", isLarge ? "text-base" : "text-sm")}>
+                      {s.desc}
+                    </p>
                   </div>
 
-                  <h3 className={cn("font-display font-bold text-[var(--ink)] mt-5 group-hover:text-[var(--royal)] transition-colors", isLarge ? "text-2xl" : "text-lg")}>
-                    {s.title}
-                  </h3>
-                  <p className={cn("text-[var(--ink)]/65 mt-2 leading-relaxed flex-1", isLarge ? "text-base" : "text-sm")}>
-                    {s.desc}
-                  </p>
-
-                  <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[var(--royal)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all">
-                    Learn More <ArrowUpRight className="h-4 w-4" />
-                  </div>
-
-                  {isLarge && (
-                    <div className="mt-6 pt-6 border-t border-border/60 grid grid-cols-3 gap-4">
-                      <div>
-                        <div className="text-2xl font-bold text-gradient-royal">98%</div>
-                        <div className="text-xs text-[var(--muted-foreground)]">Success Rate</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-gradient-gold">15+</div>
-                        <div className="text-xs text-[var(--muted-foreground)]">Years</div>
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-[var(--emerald-brand)]">4.2k</div>
-                        <div className="text-xs text-[var(--muted-foreground)]">Deals Closed</div>
-                      </div>
+                  <div>
+                    <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-[var(--gold-light)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all">
+                      Learn More <ArrowUpRight className="h-4 w-4" />
                     </div>
-                  )}
+
+                    {isLarge && (
+                      <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-3 gap-4">
+                        <div>
+                          <div className="text-2xl font-bold text-gradient-royal">98%</div>
+                          <div className="text-xs text-white/50">Success Rate</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-gradient-gold">15+</div>
+                          <div className="text-xs text-white/50">Years</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-[var(--emerald-brand)]">4.2k</div>
+                          <div className="text-xs text-white/50">Deals Closed</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             );

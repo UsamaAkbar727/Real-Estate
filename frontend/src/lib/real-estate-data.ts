@@ -619,11 +619,6 @@ export const services = [
     desc: "Complete transfer, registry, and title verification handled by in-house legal experts.",
     icon: "scale",
   },
-  {
-    title: "Interior & Renovation",
-    desc: "Bespoke interiors and turnkey renovation by award-winning design partners.",
-    icon: "sofa",
-  },
 ];
 
 export const whyChooseUs = [
