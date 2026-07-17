@@ -32,7 +32,8 @@ export default function PropertyCard({
 }) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const isFav = isFavorite(property.id);
-  const isPlot = property.category === "Plot" || property.category === "Commercial";
+  const isPlot = property.category === "Plot";
+  const isCommercial = property.category === "Commercial";
 
   const handleHeartClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -87,11 +88,17 @@ export default function PropertyCard({
         <h3 className="font-display text-lg font-bold text-[var(--ink)] leading-tight group-hover:text-[var(--royal)] transition-colors">
           {property.title}
         </h3>
-        {!isPlot ? (
+        {!isPlot && !isCommercial ? (
           <div className="flex items-center gap-4 text-xs text-[var(--ink)]/65 mt-3">
             <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-[var(--royal)]" /> {property.beds}</span>
             <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-[var(--royal)]" /> {property.baths}</span>
             <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-[var(--royal)]" /> {property.area}</span>
+          </div>
+        ) : isCommercial ? (
+          <div className="flex items-center gap-4 text-xs text-[var(--ink)]/65 mt-3">
+            <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-[var(--royal)]" /> {property.baths}</span>
+            <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-[var(--royal)]" /> {property.area}</span>
+            <span className="px-2 py-0.5 rounded-md bg-[var(--royal)]/8 text-[var(--royal)] font-semibold">{property.category}</span>
           </div>
         ) : (
           <div className="flex items-center gap-4 text-xs text-[var(--ink)]/65 mt-3">

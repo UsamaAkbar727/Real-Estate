@@ -27,7 +27,8 @@ export default function PropertyDetailClient({
   related: Property[];
 }) {
   const [activeImg, setActiveImg] = useState(0);
-  const isPlot = property.category === "Plot" || property.category === "Commercial";
+  const isPlot = property.category === "Plot";
+  const isCommercial = property.category === "Commercial";
 
   const gallery = property.gallery.length > 0 ? property.gallery : [property.image];
 
@@ -142,14 +143,24 @@ export default function PropertyDetailClient({
 
               {/* Key specs */}
               <div className="grid grid-cols-2 gap-3">
-                {!isPlot ? (
+                {!isPlot && !isCommercial && (
                   <>
                     <Spec icon={<Bed className="h-5 w-5" />} label="Bedrooms" value={String(property.beds)} />
                     <Spec icon={<Bath className="h-5 w-5" />} label="Bathrooms" value={String(property.baths)} />
                     <Spec icon={<Maximize className="h-5 w-5" />} label="Area" value={property.area} />
                     <Spec icon={<Car className="h-5 w-5" />} label="Parking" value={String(property.parking ?? 2)} />
+                    <Spec icon={<Calendar className="h-5 w-5" />} label="Year Built" value={String(property.yearBuilt)} />
                   </>
-                ) : (
+                )}
+                {isCommercial && (
+                  <>
+                    <Spec icon={<Bath className="h-5 w-5" />} label="Bathrooms" value={String(property.baths)} />
+                    <Spec icon={<Maximize className="h-5 w-5" />} label="Area" value={property.area} />
+                    <Spec icon={<Car className="h-5 w-5" />} label="Parking" value={String(property.parking ?? 2)} />
+                    <Spec icon={<Calendar className="h-5 w-5" />} label="Year Built" value={String(property.yearBuilt)} />
+                  </>
+                )}
+                {isPlot && (
                   <>
                     <Spec icon={<Maximize className="h-5 w-5" />} label="Area" value={property.area} />
                     <Spec icon={<Building2 className="h-5 w-5" />} label="Type" value={property.category} />
@@ -157,7 +168,6 @@ export default function PropertyDetailClient({
                     <Spec icon={<FileCheck className="h-5 w-5" />} label="Title" value="Clear & Verified" />
                   </>
                 )}
-                <Spec icon={<Calendar className="h-5 w-5" />} label="Year Built" value={String(property.yearBuilt)} />
                 <Spec icon={<Home className="h-5 w-5" />} label="Status" value={`For ${property.type}`} />
               </div>
 
@@ -214,8 +224,8 @@ export default function PropertyDetailClient({
                     <DetailRow label="Category" value={property.category} />
                     <DetailRow label="Area" value={property.area} />
                     <DetailRow label="Location" value={property.location} />
-                    <DetailRow label="Year Built" value={String(property.yearBuilt)} />
-                    {!isPlot && <DetailRow label="Bedrooms" value={String(property.beds)} />}
+                    {!isPlot && <DetailRow label="Year Built" value={String(property.yearBuilt)} />}
+                    {!isPlot && !isCommercial && <DetailRow label="Bedrooms" value={String(property.beds)} />}
                     {!isPlot && <DetailRow label="Bathrooms" value={String(property.baths)} />}
                     {property.parking != null && <DetailRow label="Parking" value={`${property.parking} vehicles`} />}
                     <DetailRow label="Price" value={property.price} />

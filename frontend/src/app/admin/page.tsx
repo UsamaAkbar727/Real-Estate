@@ -228,8 +228,15 @@ export default function AdminPage() {
     // Set default agent if none selected
     const finalAgentId = propForm.agentId || (agents[0]?.id || "1");
 
+    const isPlot = propForm.category === "Plot";
+    const isCommercial = propForm.category === "Commercial";
+
     const payload = {
       ...propForm,
+      beds: isPlot || isCommercial ? "0" : propForm.beds,
+      baths: isPlot ? "0" : propForm.baths,
+      parking: isPlot ? "" : propForm.parking,
+      yearBuilt: isPlot ? "2024" : propForm.yearBuilt,
       agentId: finalAgentId,
       gallery: propForm.gallery ? propForm.gallery.split(",").map(s => s.trim()) : [],
       features: propForm.features ? propForm.features.split(",").map(s => s.trim()) : []
@@ -694,8 +701,12 @@ export default function AdminPage() {
                           <h3 className="font-display font-bold text-lg text-[var(--ink)] truncate">{p.title}</h3>
                           <div className="text-xs text-[var(--muted-foreground)] flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" /> {p.location}</div>
                           <div className="flex gap-4 mt-3 py-3 border-y border-border text-xs text-[var(--ink)]/70">
-                            <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-[var(--royal)]" /> {p.beds} Beds</span>
-                            <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-[var(--royal)]" /> {p.baths} Baths</span>
+                            {p.category !== "Plot" && p.category !== "Commercial" && (
+                              <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-[var(--royal)]" /> {p.beds} Beds</span>
+                            )}
+                            {p.category !== "Plot" && (
+                              <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-[var(--royal)]" /> {p.baths} Baths</span>
+                            )}
                             <span className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-[var(--royal)]" /> {p.area}</span>
                           </div>
                           <div className="flex justify-between items-center mt-4">
@@ -939,34 +950,55 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Beds</label>
-                  <input type="number" required value={propForm.beds} onChange={(e) => setPropForm({ ...propForm, beds: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+              {/* Dynamic inputs based on Category */}
+              {propForm.category !== "Plot" ? (
+                <div className={cn(
+                  "grid gap-4",
+                  propForm.category === "Commercial" ? "grid-cols-4" : "grid-cols-5"
+                )}>
+                  {propForm.category !== "Commercial" && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Beds</label>
+                      <input type="number" required={propForm.category !== "Commercial"} value={propForm.beds} onChange={(e) => setPropForm({ ...propForm, beds: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Baths</label>
+                    <input type="number" required value={propForm.baths} onChange={(e) => setPropForm({ ...propForm, baths: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Parking</label>
+                    <input type="number" value={propForm.parking} onChange={(e) => setPropForm({ ...propForm, parking: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Year Built</label>
+                    <input type="number" required value={propForm.yearBuilt} onChange={(e) => setPropForm({ ...propForm, yearBuilt: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Listing Tag</label>
+                    <select value={propForm.tag} onChange={(e) => setPropForm({ ...propForm, tag: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)]">
+                      <option value="">None</option>
+                      <option value="Signature">Signature</option>
+                      <option value="New">New</option>
+                      <option value="Hot Deal">Hot Deal</option>
+                      <option value="Exclusive">Exclusive</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Baths</label>
-                  <input type="number" required value={propForm.baths} onChange={(e) => setPropForm({ ...propForm, baths: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Listing Tag</label>
+                    <select value={propForm.tag} onChange={(e) => setPropForm({ ...propForm, tag: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)]">
+                      <option value="">None</option>
+                      <option value="Signature">Signature</option>
+                      <option value="New">New</option>
+                      <option value="Hot Deal">Hot Deal</option>
+                      <option value="Exclusive">Exclusive</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Parking</label>
-                  <input type="number" value={propForm.parking} onChange={(e) => setPropForm({ ...propForm, parking: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Year Built</label>
-                  <input type="number" required value={propForm.yearBuilt} onChange={(e) => setPropForm({ ...propForm, yearBuilt: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)] focus:bg-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1">Listing Tag</label>
-                  <select value={propForm.tag} onChange={(e) => setPropForm({ ...propForm, tag: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-border bg-luxe-soft text-sm focus:outline-none focus:border-[var(--royal)]">
-                    <option value="">None</option>
-                    <option value="Signature">Signature</option>
-                    <option value="New">New</option>
-                    <option value="Hot Deal">Hot Deal</option>
-                    <option value="Exclusive">Exclusive</option>
-                  </select>
-                </div>
-              </div>
+              )}
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
